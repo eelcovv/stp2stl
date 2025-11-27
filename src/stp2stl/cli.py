@@ -6,8 +6,7 @@ from pathlib import Path
 
 # --- FreeCAD Path Setup ---
 # IMPORTANT: This path must point to the 'bin' directory of your FreeCAD installation.
-# The 'Mod' directory is incorrect for loading the core libraries.
-FREECAD_BIN_PATH = Path(r"C:/Program Files/FreeCAD 1.0/Mod")
+FREECAD_BIN_PATH = Path(r"C:\Program Files\FreeCAD 1.0\bin")
 
 if FREECAD_BIN_PATH.is_dir():
     if str(FREECAD_BIN_PATH) not in sys.path:
@@ -19,40 +18,64 @@ else:
     sys.exit(1)
 
 try:
-    import MeshPart
+    import FreeCAD
     import Part
+    import MeshPart
+    import Import
 except ImportError:
     print("ERROR: Could not import the FreeCAD modules.")
     print(f"Please verify that the path '{FREECAD_BIN_PATH}' is correct.")
     sys.exit(1)
+
+# --- Conversion Function ---
 
 
 def convert_step_to_stl(input_filepath: str):
     """
     Converts a single STEP file to STL with specific mesh settings.
     """
-    filename_without_ext, _ = os.path.splitext(input_filepath)
-    output_filepath = filename_without_ext + ".stl"
+    output_filepath = os.path.splitext(input_filepath)[0] + ".stl"
+    doc = None  # Initialize doc to None for the finally block
 
-    logging.info(f"Reading file: {input_filepath}...")
+    logging.info(f"Processing file: {input_filepath}...")
 
     try:
-        # 1. Read the STEP file directly into a Shape object
-        shape = Part.read(input_filepath)
+        # 1. Create a new document and import the STEP file into it.
+        doc = FreeCAD.newDocument()
+        Import.insert(input_filepath, doc.Name)
 
-        # 2. Create the Mesh (Tessellation)
+        # Check if any object was imported
+        if not doc.Objects:
+            raise RuntimeError("STEP file could not be imported or is empty.")
+
+        # 2. Get the shape from the first imported object.
+        # This assumes the STEP file contains at least one object.
+        shape = doc.Objects[0].Shape
+
+        # 3. Create the Mesh (Tessellation)
         logging.info("Performing meshing...")
         mesh_object = MeshPart.meshFromShape(
             Shape=shape, LinearDeflection=2, AngularDeflection=0.0872665, Relative=True
         )
-        # 3. Export to STL
+
+        # 4. Export to STL
         logging.info(f"Exporting to: {output_filepath}...")
         mesh_object.write(output_filepath)
 
         logging.info(f"File successfully converted: {output_filepath}")
 
     except Exception as e:
+        # Use logging.exception to include traceback information in the log
         logging.exception(f"Could not convert file {input_filepath}: {e!s}")
+
+    finally:
+        # 5. Clean up by closing the document to free up memory
+        if doc:
+            FreeCAD.closeDocument(doc.Name)
+            logging.info(f"Closed document: {doc.Name}")
+
+
+# --- Main Execution ---
 
 
 def main():
@@ -63,7 +86,9 @@ def main():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
     # Setup argument parser
-    parser = argparse.ArgumentParser(description="Convert one or more STEP (.stp, .step) files to STL (.stl).")
+    parser = argparse.ArgumentParser(
+        description="Convert one or more STEP (.stp, .step) files to STL (.stl)."
+    )
     parser.add_argument(
         "input_files",
         metavar="FILE",
