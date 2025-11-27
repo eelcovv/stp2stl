@@ -1,54 +1,104 @@
+import argparse
+import logging
 import os
+import sys
+from pathlib import Path
 
-import MeshPart
-import Part
+# --- FreeCAD Path Setup ---
+# IMPORTANT: This path must point to the 'bin' directory of your FreeCAD installation.
+# The 'Mod' directory is incorrect for loading the core libraries.
+FREECAD_BIN_PATH = Path(r"C:\Program Files\FreeCAD 1.0\bin")
+
+if FREECAD_BIN_PATH.is_dir():
+    if str(FREECAD_BIN_PATH) not in sys.path:
+        sys.path.append(str(FREECAD_BIN_PATH))
+else:
+    # Use a simple print for this critical error, as the logger is not yet configured.
+    print(f"ERROR: The specified FreeCAD path does not exist: {FREECAD_BIN_PATH}")
+    print("Please adjust the FREECAD_BIN_PATH in this script to the correct location.")
+    sys.exit(1)
+
+try:
+    import MeshPart
+    import Part
+except ImportError:
+    print("ERROR: Could not import the FreeCAD modules.")
+    print(f"Please verify that the path '{FREECAD_BIN_PATH}' is correct.")
+    sys.exit(1)
+
+# --- Conversion Function ---
 
 
-def convert_step_to_stl(input_filepath):
+def convert_step_to_stl(input_filepath: str):
     """
-    Converteert een STEP-bestand naar STL met specifieke mesh-instellingen.
+    Converts a single STEP file to STL with specific mesh settings.
     """
-    # Controleer of het bestand bestaat
-    if not os.path.exists(input_filepath):
-        print(f"Fout: Bestand niet gevonden: {input_filepath}")
-        return
-
-    # Bepaal de naam van het uitvoerbestand (zelfde pad, maar .stl extensie)
-    filename_without_ext = os.path.splitext(input_filepath)[0]
+    # Determine the output filename (same path, but .stl extension)
+    filename_without_ext, _ = os.path.splitext(input_filepath)
     output_filepath = filename_without_ext + ".stl"
 
-    print(f"Bezig met inlezen: {input_filepath}...")
+    logging.info(f"Reading file: {input_filepath}...")
 
     try:
-        # 1. Lees de STEP file in als een Shape (Geometry)
-        # We gebruiken Part.Shape() zodat we geen volledig GUI-document hoeven te openen
+        # 1. Read the STEP file as a Shape
         shape = Part.Shape()
         shape.read(input_filepath)
 
-        # 2. Maak de Mesh (Tessellatie)
-        # Instellingen overgenomen uit jouw log:
-        # LinearDeflection=2, AngularDeflection=0.0872665, Relative=True
-        print("Meshing uitvoeren...")
+        # 2. Create the Mesh (Tessellation)
+        logging.info("Performing meshing...")
         mesh_object = MeshPart.meshFromShape(
             Shape=shape, LinearDeflection=2, AngularDeflection=0.0872665, Relative=True
         )
 
-        # 3. Exporteer naar STL
-        print(f"Exporteren naar: {output_filepath}...")
+        # 3. Export to STL
+        logging.info(f"Exporting to: {output_filepath}...")
         mesh_object.write(output_filepath)
 
-        print("Succesvol afgerond!")
+        logging.info(f"File successfully converted: {output_filepath}")
 
     except Exception as e:
-        print(f"Er is een fout opgetreden: {e!s}")
+        logging.error(f"Could not convert file {input_filepath}: {e!s}")
 
 
-# ==========================================
-# CONFIGURATIE
-# ==========================================
+# --- Main Execution ---
 
-# Pas onderstaande regel aan naar de locatie van je STEP bestand
-mijn_bestand = r"C:/Nextcloud/Engineering/Projects/CP2532 - Huizhong 301 conversion/02 Working/TOPAssets/Huizhong301Sponsons/geometry/tanks/SPT_02_PS.step"
 
-# Voer de functie uit
-convert_step_to_stl(mijn_bestand)
+def main():
+    """
+    Main function for parsing arguments and calling the conversion.
+    """
+    # Setup logging
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+
+    # Setup argument parser
+    parser = argparse.ArgumentParser(
+        description="Convert one or more STEP (.stp, .step) files to STL (.stl)."
+    )
+    parser.add_argument(
+        "input_files",
+        metavar="FILE",
+        nargs="+",
+        help="One or more paths to the STEP files to be converted.",
+    )
+    args = parser.parse_args()
+
+    # Loop over all provided files
+    logging.info(f"Number of files to convert: {len(args.input_files)}")
+    success_count = 0
+    for filepath in args.input_files:
+        if not os.path.exists(filepath):
+            logging.warning(f"File not found, skipping: {filepath}")
+            continue
+
+        # Check if it is a STEP file
+        if filepath.lower().endswith((".stp", ".step")):
+            convert_step_to_stl(filepath)
+            success_count += 1
+        else:
+            logging.warning(f"File is not a .stp or .step file, skipping: {filepath}")
+
+    logging.info(f"Done. {success_count} out of {len(args.input_files)} files processed.")
+
+
+if __name__ == "__main__":
+    main()
