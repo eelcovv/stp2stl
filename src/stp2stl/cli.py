@@ -66,8 +66,7 @@ def convert_step_to_stl(
     scale_x: float,
     scale_y: float,
     scale_z: float,
-    linear_deflection: float,
-    angular_deflection: float,
+    args: argparse.Namespace,
 ):
     """
     Converts a single STEP file to STL with specific mesh settings.
@@ -96,16 +95,38 @@ def convert_step_to_stl(
             matrix = FreeCAD.Base.Matrix(scale_x, 0, 0, 0, 0, scale_y, 0, 0, 0, 0, scale_z, 0, 0, 0, 0, 1)
             shape = shape.transformed(matrix)
 
-        angular_deflection_rad = angular_deflection * (3.141592653589793 / 180.0)  # Convert degrees to radians
-
         # 4. Create the Mesh (Tessellation)
-        logging.info("Performing meshing...")
-        mesh_object = MeshPart.meshFromShape(
-            Shape=shape,
-            LinearDeflection=linear_deflection,
-            AngularDeflection=angular_deflection_rad,
-            Relative=True,
-        )
+        logging.info(f"Performing meshing with '{args.mesher}' mesher...")
+        if args.mesher == "standard":
+            angular_deflection_rad = args.angular_deflection * (3.141592653589793 / 180.0)
+            mesh_object = MeshPart.meshFromShape(
+                Shape=shape,
+                LinearDeflection=args.linear_deflection,
+                AngularDeflection=angular_deflection_rad,
+                Relative=True,
+            )
+        elif args.mesher == "mefisto":
+            mesh_object = MeshPart.meshFromShape(
+                Shape=shape,
+                Fineness=args.fineness,
+                SecondOrder=args.second_order,
+                Optimize=args.optimize,
+                AllowQuad=args.allow_quad,
+            )
+        elif args.mesher == "netgen":
+            mesh_object = MeshPart.meshFromShape(
+                Shape=shape,
+                Tessellator=1,  # Use Netgen
+                Fineness=args.fineness,
+                SecondOrder=args.second_order,
+                Optimize=args.optimize,
+                AllowQuad=args.allow_quad,
+                CheckChart=args.check_chart,
+            )
+        else:
+            # This should not happen due to 'choices' in argparse
+            raise ValueError(f"Unknown mesher: {args.mesher}")
+
 
         # 5. Export to STL
         logging.info(f"Exporting to: {output_filepath}...")
@@ -150,17 +171,62 @@ def main():
         "--mm_to_m", action="store_true", help="Apply a uniform scaling factor of 0.001 to convert from mm to m."
     )
     # Mesh settings
-    parser.add_argument(
+    mesher_group = parser.add_argument_group("Meshing settings")
+    mesher_group.add_argument(
+        "--mesher",
+        type=str,
+        default="standard",
+        choices=["standard", "mefisto", "netgen"],
+        help="Meshing algorithm to use. Default is 'standard'.",
+    )
+
+    # Standard mesher settings
+    standard_group = parser.add_argument_group("Standard mesher settings")
+    standard_group.add_argument(
         "--linear_deflection",
         type=float,
         default=10.0,
-        help="Linear deflection for meshing. Default is 10.0 mm",
+        help="Linear deflection for meshing (for 'standard' mesher). Default is 10.0 mm",
     )
-    parser.add_argument(
+    standard_group.add_argument(
         "--angular_deflection",
         type=float,
         default=5,
-        help="Angular deflection for meshing in degrees. Default is 5 degrees.",
+        help="Angular deflection for meshing in degrees (for 'standard' mesher). Default is 5 degrees.",
+    )
+
+    # Mefisto mesher settings
+    mefisto_group = parser.add_argument_group("Mefisto mesher settings")
+    mefisto_group.add_argument(
+        "--fineness",
+        type=int,
+        default=2,
+        choices=range(6),
+        metavar="[0-5]",
+        help="Fineness of the mesh (for 'mefisto' or 'netgen' mesher). 0=Very Coarse, 1=Coarse, 2=Moderate, 3=Fine, 4=Very Fine, 5=User defined. Default is 2.",
+    )
+    mefisto_group.add_argument(
+        "--second_order",
+        action="store_true",
+        help="Create second-order elements (for 'mefisto' or 'netgen' mesher).",
+    )
+    mefisto_group.add_argument(
+        "--optimize",
+        action="store_true",
+        help="Optimize the mesh surface (for 'mefisto' or 'netgen' mesher).",
+    )
+    mefisto_group.add_argument(
+        "--allow_quad",
+        action="store_true",
+        help="Allow quadrilateral elements (for 'mefisto' or 'netgen' mesher).",
+    )
+
+    # Netgen mesher settings
+    netgen_group = parser.add_argument_group("Netgen mesher settings")
+    netgen_group.add_argument(
+        "--check_chart",
+        action="store_true",
+        help="Whether to analyze the model chart ('netgen' mesher).",
     )
     args = parser.parse_args()
 
@@ -203,8 +269,7 @@ def main():
                 scale_x,
                 scale_y,
                 scale_z,
-                args.linear_deflection,
-                args.angular_deflection,
+                args,
             )
             success_count += 1
         else:
