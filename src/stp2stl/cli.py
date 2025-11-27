@@ -93,6 +93,9 @@ def convert_step_to_stl(
         logging.info(f"Performing meshing with '{args.mesher}' mesher...")
         if args.mesher == "standard":
             angular_deflection_rad = args.angular_deflection * (3.141592653589793 / 180.0)
+            logging.debug(
+                f"Running standard mesher with LinearDeflection={args.linear_deflection}, AngularDeflection={angular_deflection_rad}"
+            )
             mesh_object = MeshPart.meshFromShape(
                 Shape=shape,
                 LinearDeflection=args.linear_deflection,
@@ -109,7 +112,7 @@ def convert_step_to_stl(
             second_order = int(args.second_order)
             optimize = int(args.optimize)
             allow_quad = int(args.allow_quad)
-            logging.info(
+            logging.debug(
                 f"Netgen parameters: fineness={fineness}, second_order={second_order}, optimize={optimize}, allow_quad={allow_quad}"
             )
             mesh_object = MeshPart.meshFromShape(
