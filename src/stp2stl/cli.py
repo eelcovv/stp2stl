@@ -7,7 +7,7 @@ from pathlib import Path
 # --- FreeCAD Path Setup ---
 # IMPORTANT: This path must point to the 'bin' directory of your FreeCAD installation.
 # The 'Mod' directory is incorrect for loading the core libraries.
-FREECAD_BIN_PATH = Path(r"C:\Program Files\FreeCAD 1.0\bin")
+FREECAD_BIN_PATH = Path(r"C:/Program Files/FreeCAD 1.0/Mod")
 
 if FREECAD_BIN_PATH.is_dir():
     if str(FREECAD_BIN_PATH) not in sys.path:
@@ -26,30 +26,25 @@ except ImportError:
     print(f"Please verify that the path '{FREECAD_BIN_PATH}' is correct.")
     sys.exit(1)
 
-# --- Conversion Function ---
-
 
 def convert_step_to_stl(input_filepath: str):
     """
     Converts a single STEP file to STL with specific mesh settings.
     """
-    # Determine the output filename (same path, but .stl extension)
     filename_without_ext, _ = os.path.splitext(input_filepath)
     output_filepath = filename_without_ext + ".stl"
 
     logging.info(f"Reading file: {input_filepath}...")
 
     try:
-        # 1. Read the STEP file as a Shape
-        shape = Part.Shape()
-        shape.read(input_filepath)
+        # 1. Read the STEP file directly into a Shape object
+        shape = Part.read(input_filepath)
 
         # 2. Create the Mesh (Tessellation)
         logging.info("Performing meshing...")
         mesh_object = MeshPart.meshFromShape(
             Shape=shape, LinearDeflection=2, AngularDeflection=0.0872665, Relative=True
         )
-
         # 3. Export to STL
         logging.info(f"Exporting to: {output_filepath}...")
         mesh_object.write(output_filepath)
@@ -57,10 +52,7 @@ def convert_step_to_stl(input_filepath: str):
         logging.info(f"File successfully converted: {output_filepath}")
 
     except Exception as e:
-        logging.error(f"Could not convert file {input_filepath}: {e!s}")
-
-
-# --- Main Execution ---
+        logging.exception(f"Could not convert file {input_filepath}: {e!s}")
 
 
 def main():
@@ -71,9 +63,7 @@ def main():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
     # Setup argument parser
-    parser = argparse.ArgumentParser(
-        description="Convert one or more STEP (.stp, .step) files to STL (.stl)."
-    )
+    parser = argparse.ArgumentParser(description="Convert one or more STEP (.stp, .step) files to STL (.stl).")
     parser.add_argument(
         "input_files",
         metavar="FILE",
