@@ -50,6 +50,7 @@ try:
     import FreeCAD
     import Import
     import MeshPart
+    import Part
 except ImportError:
     print("ERROR: Could not import the FreeCAD modules.")
     print(
@@ -60,7 +61,7 @@ except ImportError:
 # --- Conversion Function ---
 
 
-def convert_step_to_stl(input_filepath: str):
+def convert_step_to_stl(input_filepath: str, scale_x: float, scale_y: float, scale_z: float):
     """
     Converts a single STEP file to STL with specific mesh settings.
     """
@@ -82,13 +83,19 @@ def convert_step_to_stl(input_filepath: str):
         # This assumes the STEP file contains at least one object.
         shape = doc.Objects[0].Shape
 
-        # 3. Create the Mesh (Tessellation)
+        # 3. Apply scaling if necessary
+        if scale_x != 1.0 or scale_y != 1.0 or scale_z != 1.0:
+            logging.info(f"Applying scaling: x={scale_x}, y={scale_y}, z={scale_z}")
+            matrix = FreeCAD.Base.Matrix(scale_x, 0, 0, 0, 0, scale_y, 0, 0, 0, 0, scale_z, 0, 0, 0, 0, 1)
+            shape.transformShape(matrix)
+
+        # 4. Create the Mesh (Tessellation)
         logging.info("Performing meshing...")
         mesh_object = MeshPart.meshFromShape(
             Shape=shape, LinearDeflection=2, AngularDeflection=0.0872665, Relative=True
         )
 
-        # 4. Export to STL
+        # 5. Export to STL
         logging.info(f"Exporting to: {output_filepath}...")
         mesh_object.write(output_filepath)
 
@@ -99,7 +106,7 @@ def convert_step_to_stl(input_filepath: str):
         logging.exception(f"Could not convert file {input_filepath}")
 
     finally:
-        # 5. Clean up by closing the document to free up memory
+        # 6. Clean up by closing the document to free up memory
         if doc:
             logging.info(f"Closing document: {doc.Name}")
             FreeCAD.closeDocument(doc.Name)
@@ -123,7 +130,30 @@ def main():
         nargs="+",
         help="One or more paths or glob patterns to the STEP files to be converted.",
     )
+    parser.add_argument("--scale", type=float, help="Uniform scaling factor for all axes.")
+    parser.add_argument("--scale_x", type=float, help="Scaling factor for the X-axis.")
+    parser.add_argument("--scale_y", type=float, help="Scaling factor for the Y-axis.")
+    parser.add_argument("--scale_z", type=float, help="Scaling factor for the Z-axis.")
+    parser.add_argument(
+        "--mm_to_m", action="store_true", help="Apply a uniform scaling factor of 0.001 to convert from mm to m."
+    )
     args = parser.parse_args()
+
+    # Determine scaling factors
+    if args.mm_to_m:
+        scale_x = scale_y = scale_z = 0.001
+    else:
+        scale_x = scale_y = scale_z = 1.0
+
+    if args.scale is not None:
+        scale_x = scale_y = scale_z = args.scale
+
+    if args.scale_x is not None:
+        scale_x = args.scale_x
+    if args.scale_y is not None:
+        scale_y = args.scale_y
+    if args.scale_z is not None:
+        scale_z = args.scale_z
 
     # Expand glob patterns
     all_files = []
@@ -143,7 +173,7 @@ def main():
 
         # Check if it is a STEP file
         if filepath.lower().endswith((".stp", ".step")):
-            convert_step_to_stl(filepath)
+            convert_step_to_stl(filepath, scale_x, scale_y, scale_z)
             success_count += 1
         else:
             logging.warning(f"File is not a .stp or .step file, skipping: {filepath}")
