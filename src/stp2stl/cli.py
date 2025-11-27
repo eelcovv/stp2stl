@@ -89,13 +89,7 @@ def convert_step_to_stl(
         # This assumes the STEP file contains at least one object.
         shape = doc.Objects[0].Shape
 
-        # 3. Apply scaling if necessary
-        if scale_x != 1.0 or scale_y != 1.0 or scale_z != 1.0:
-            logging.info(f"Applying scaling: x={scale_x}, y={scale_y}, z={scale_z}")
-            matrix = FreeCAD.Base.Matrix(scale_x, 0, 0, 0, 0, scale_y, 0, 0, 0, 0, scale_z, 0, 0, 0, 0, 1)
-            shape = shape.transformed(matrix)
-
-        # 4. Create the Mesh (Tessellation)
+        # 3. Create the Mesh (Tessellation)
         logging.info(f"Performing meshing with '{args.mesher}' mesher...")
         if args.mesher == "standard":
             angular_deflection_rad = args.angular_deflection * (3.141592653589793 / 180.0)
@@ -111,17 +105,30 @@ def convert_step_to_stl(
                 Fineness=args.fineness,
             )
         elif args.mesher == "netgen":
+            fineness = int(args.fineness)
+            second_order = int(args.second_order)
+            optimize = int(args.optimize)
+            allow_quad = int(args.allow_quad)
+            logging.info(
+                f"Netgen parameters: fineness={fineness}, second_order={second_order}, optimize={optimize}, allow_quad={allow_quad}"
+            )
             mesh_object = MeshPart.meshFromShape(
                 Shape=shape,
-                Fineness=args.fineness,
-                SecondOrder=args.second_order,
-                Optimize=args.optimize,
-                AllowQuad=args.allow_quad,
+                Fineness=fineness,
+                SecondOrder=second_order,
+                Optimize=optimize,
+                AllowQuad=allow_quad,
             )
 
         else:
             # This should not happen due to 'choices' in argparse
             raise ValueError(f"Unknown mesher: {args.mesher}")  # noqa: TRY003, TRY301
+
+        # 4. Apply scaling if necessary
+        if scale_x != 1.0 or scale_y != 1.0 or scale_z != 1.0:
+            logging.info(f"Applying scaling: x={scale_x}, y={scale_y}, z={scale_z}")
+            matrix = FreeCAD.Base.Matrix(scale_x, 0, 0, 0, 0, scale_y, 0, 0, 0, 0, scale_z, 0, 0, 0, 0, 1)
+            mesh_object.transform(matrix)
 
         # 5. Export to STL
         logging.info(f"Exporting to: {output_filepath}...")
@@ -148,7 +155,7 @@ def main():
     Main function for parsing arguments and calling the conversion.
     """
     # Setup logging
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+    logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s")
 
     # Setup argument parser
     parser = argparse.ArgumentParser(description="Convert one or more STEP (.stp, .step) files to STL (.stl).")
@@ -193,29 +200,15 @@ def main():
     # Mefisto mesher settings
     mefisto_group = parser.add_argument_group("Mefisto mesher settings")
     mefisto_group.add_argument(
-        "--fineness",
-        type=int,
-        default=0,
-        choices=range(6),
-        metavar="[0-5]",
-        help="Fineness of the mesh (for 'mefisto' or 'netgen' mesher). 0=Very Coarse, 1=Coarse, 2=Moderate, 3=Fine, 4=Very Fine, 5=User defined. Default is 2.",
-    )
-    mefisto_group.add_argument(
         "--second_order",
         action="store_true",
         help="Create second-order elements (for 'mefisto' or 'netgen' mesher).",
     )
     mefisto_group.add_argument(
         "--optimize",
-        action="store_true",
+        action=argparse.BooleanOptionalAction,
         default=True,
-        help="Optimize the mesh surface (for 'mefisto' or 'netgen' mesher).",
-    )
-    mefisto_group.add_argument(
-        "--no-optimize",
-        dest="optimize",
-        action="store_false",
-        help="Optimize the mesh surface (for 'mefisto' or 'netgen' mesher).",
+        help="Optimize the mesh surface (for 'mefisto' or 'netgen' mesher). Default is True.",
     )
     mefisto_group.add_argument(
         "--allow_quad",
@@ -225,6 +218,14 @@ def main():
 
     # Netgen mesher settings
     netgen_group = parser.add_argument_group("Netgen mesher settings")
+    netgen_group.add_argument(
+        "--fineness",
+        type=int,
+        default=0,
+        choices=range(6),
+        metavar="[0-5]",
+        help="Fineness of the mesh (for 'mefisto' or 'netgen' mesher). 0=Very Coarse, 1=Coarse, 2=Moderate, 3=Fine, 4=Very Fine, 5=User defined. Default is 2.",
+    )
     netgen_group.add_argument(
         "--mesh_size_grading",
         type=float,
