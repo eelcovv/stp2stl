@@ -5,26 +5,45 @@ import sys
 from pathlib import Path
 
 # --- FreeCAD Path Setup ---
-# IMPORTANT: This path must point to the 'bin' directory of your FreeCAD installation.
-FREECAD_BIN_PATH = Path(r"C:\Program Files\FreeCAD 1.0\bin")
+# Tries to locate FreeCAD in the following order:
+# 1. FREECAD_PATH environment variable (pointing to the FreeCAD /bin directory)
+# 2. A hardcoded default path.
 
-if FREECAD_BIN_PATH.is_dir():
+FREECAD_BIN_PATH = None
+FREECAD_PATH_ENV = os.getenv("FREECAD_PATH")
+
+if FREECAD_PATH_ENV and Path(FREECAD_PATH_ENV).is_dir():
+    FREECAD_BIN_PATH = Path(FREECAD_PATH_ENV)
+    print(f"INFO: Using FreeCAD path from FREECAD_PATH environment variable: {FREECAD_BIN_PATH}")
+else:
+    # IMPORTANT: This path must point to the 'bin' directory of your FreeCAD installation.
+    default_path = Path(r"C:\Program Files\FreeCAD 1.0\bin")
+    if default_path.is_dir():
+        FREECAD_BIN_PATH = default_path
+        print(f"INFO: Using default FreeCAD path: {FREECAD_BIN_PATH}")
+
+if FREECAD_BIN_PATH and FREECAD_BIN_PATH.is_dir():
     if str(FREECAD_BIN_PATH) not in sys.path:
         sys.path.append(str(FREECAD_BIN_PATH))
 else:
     # Use a simple print for this critical error, as the logger is not yet configured.
-    print(f"ERROR: The specified FreeCAD path does not exist: {FREECAD_BIN_PATH}")
-    print("Please adjust the FREECAD_BIN_PATH in this script to the correct location.")
+    print("ERROR: Could not find the FreeCAD 'bin' directory.")
+    print("Please do one of the following:")
+    print(
+        "1. Set the 'FREECAD_PATH' environment variable to point to the 'bin' directory of your FreeCAD installation."
+    )
+    print(r"   Example: set FREECAD_PATH=C:\Program Files\FreeCAD 0.21\bin")
+    print("2. Modify the 'default_path' variable in this script to the correct location.")
     sys.exit(1)
 
 try:
     import FreeCAD
-    import Part
-    import MeshPart
     import Import
+    import MeshPart
+    import Part
 except ImportError:
     print("ERROR: Could not import the FreeCAD modules.")
-    print(f"Please verify that the path '{FREECAD_BIN_PATH}' is correct.")
+    print(f"Please verify that the path '{FREECAD_BIN_PATH}' is correct and contains the necessary FreeCAD libraries.")
     sys.exit(1)
 
 # --- Conversion Function ---
@@ -86,9 +105,7 @@ def main():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
     # Setup argument parser
-    parser = argparse.ArgumentParser(
-        description="Convert one or more STEP (.stp, .step) files to STL (.stl)."
-    )
+    parser = argparse.ArgumentParser(description="Convert one or more STEP (.stp, .step) files to STL (.stl).")
     parser.add_argument(
         "input_files",
         metavar="FILE",
