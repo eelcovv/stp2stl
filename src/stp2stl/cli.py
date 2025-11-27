@@ -96,12 +96,14 @@ def convert_step_to_stl(
             matrix = FreeCAD.Base.Matrix(scale_x, 0, 0, 0, 0, scale_y, 0, 0, 0, 0, scale_z, 0, 0, 0, 0, 1)
             shape = shape.transformed(matrix)
 
+        angular_deflection_rad = angular_deflection * (3.141592653589793 / 180.0)  # Convert degrees to radians
+
         # 4. Create the Mesh (Tessellation)
         logging.info("Performing meshing...")
         mesh_object = MeshPart.meshFromShape(
             Shape=shape,
             LinearDeflection=linear_deflection,
-            AngularDeflection=angular_deflection,
+            AngularDeflection=angular_deflection_rad,
             Relative=True,
         )
 
@@ -151,14 +153,14 @@ def main():
     parser.add_argument(
         "--linear_deflection",
         type=float,
-        default=2.0,
-        help="Linear deflection for meshing. Default is 2.0.",
+        default=10.0,
+        help="Linear deflection for meshing. Default is 10.0 mm",
     )
     parser.add_argument(
         "--angular_deflection",
         type=float,
-        default=0.0872665,
-        help="Angular deflection for meshing in radians. Default is 0.0872665 (5 degrees).",
+        default=5,
+        help="Angular deflection for meshing in degrees. Default is 5 degrees.",
     )
     args = parser.parse_args()
 
