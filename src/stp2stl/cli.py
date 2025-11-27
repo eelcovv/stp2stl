@@ -109,24 +109,19 @@ def convert_step_to_stl(
             mesh_object = MeshPart.meshFromShape(
                 Shape=shape,
                 Fineness=args.fineness,
-                SecondOrder=args.second_order,
-                Optimize=args.optimize,
-                AllowQuad=args.allow_quad,
             )
         elif args.mesher == "netgen":
             mesh_object = MeshPart.meshFromShape(
                 Shape=shape,
-                Tessellator=1,  # Use Netgen
                 Fineness=args.fineness,
                 SecondOrder=args.second_order,
                 Optimize=args.optimize,
                 AllowQuad=args.allow_quad,
-                CheckChart=args.check_chart,
             )
+
         else:
             # This should not happen due to 'choices' in argparse
-            raise ValueError(f"Unknown mesher: {args.mesher}")
-
+            raise ValueError(f"Unknown mesher: {args.mesher}")  # noqa: TRY003, TRY301
 
         # 5. Export to STL
         logging.info(f"Exporting to: {output_filepath}...")
@@ -200,7 +195,7 @@ def main():
     mefisto_group.add_argument(
         "--fineness",
         type=int,
-        default=2,
+        default=0,
         choices=range(6),
         metavar="[0-5]",
         help="Fineness of the mesh (for 'mefisto' or 'netgen' mesher). 0=Very Coarse, 1=Coarse, 2=Moderate, 3=Fine, 4=Very Fine, 5=User defined. Default is 2.",
@@ -213,6 +208,13 @@ def main():
     mefisto_group.add_argument(
         "--optimize",
         action="store_true",
+        default=True,
+        help="Optimize the mesh surface (for 'mefisto' or 'netgen' mesher).",
+    )
+    mefisto_group.add_argument(
+        "--no-optimize",
+        dest="optimize",
+        action="store_false",
         help="Optimize the mesh surface (for 'mefisto' or 'netgen' mesher).",
     )
     mefisto_group.add_argument(
@@ -224,9 +226,22 @@ def main():
     # Netgen mesher settings
     netgen_group = parser.add_argument_group("Netgen mesher settings")
     netgen_group.add_argument(
-        "--check_chart",
-        action="store_true",
-        help="Whether to analyze the model chart ('netgen' mesher).",
+        "--mesh_size_grading",
+        type=float,
+        default=0.3,
+        help="Mesh size grading for Netgen mesher (0.1 to 1.0, smaller is finer). Default is 0.3.",
+    )
+    netgen_group.add_argument(
+        "--element_per_edge",
+        type=float,
+        default=1.0,
+        help="Elements per edge for Netgen mesher (0.1 to 1.0, larger is finer). Default is 1.0.",
+    )
+    netgen_group.add_argument(
+        "--element_per_curvature",
+        type=float,
+        default=2.0,
+        help="Elements per curvature radius for Netgen mesher (0.2 to 10, larger is finer). Default is 2.0.",
     )
     args = parser.parse_args()
 
