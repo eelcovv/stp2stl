@@ -37,6 +37,9 @@ dev = [
     
 ]
 
+[project.scripts]
+stp2stl = "stp2stl.cli:main"
+
 [project.urls]
 Homepage = "https://eelcovv.github.io/stp2stl/"
 Repository = "https://github.com/eelcovv/stp2stl"
