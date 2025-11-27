@@ -87,7 +87,7 @@ def convert_step_to_stl(input_filepath: str, scale_x: float, scale_y: float, sca
         if scale_x != 1.0 or scale_y != 1.0 or scale_z != 1.0:
             logging.info(f"Applying scaling: x={scale_x}, y={scale_y}, z={scale_z}")
             matrix = FreeCAD.Base.Matrix(scale_x, 0, 0, 0, 0, scale_y, 0, 0, 0, 0, scale_z, 0, 0, 0, 0, 1)
-            shape.transformShape(matrix)
+            shape = shape.transformed(matrix)
 
         # 4. Create the Mesh (Tessellation)
         logging.info("Performing meshing...")
