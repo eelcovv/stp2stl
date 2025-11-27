@@ -5,34 +5,43 @@ import sys
 from pathlib import Path
 
 # --- FreeCAD Path Setup ---
-# Tries to locate FreeCAD in the following order:
-# 1. FREECAD_PATH environment variable (pointing to the FreeCAD /bin directory)
+# Tries to locate the FreeCAD root directory in the following order:
+# 1. FREECAD_PATH environment variable (pointing to the FreeCAD installation root)
 # 2. A hardcoded default path.
+# From the root, it adds the /bin and /lib directories to the Python path.
 
-FREECAD_BIN_PATH = None
+FREECAD_ROOT_PATH = None
 FREECAD_PATH_ENV = os.getenv("FREECAD_PATH")
 
 if FREECAD_PATH_ENV and Path(FREECAD_PATH_ENV).is_dir():
-    FREECAD_BIN_PATH = Path(FREECAD_PATH_ENV)
-    print(f"INFO: Using FreeCAD path from FREECAD_PATH environment variable: {FREECAD_BIN_PATH}")
+    FREECAD_ROOT_PATH = Path(FREECAD_PATH_ENV)
+    print(f"INFO: Using FreeCAD path from FREECAD_PATH environment variable: {FREECAD_ROOT_PATH}")
 else:
-    # IMPORTANT: This path must point to the 'bin' directory of your FreeCAD installation.
-    default_path = Path(r"C:\Program Files\FreeCAD 1.0\bin")
+    # IMPORTANT: This path must point to the root of your FreeCAD installation.
+    default_path = Path(r"C:\Program Files\FreeCAD 1.0")
     if default_path.is_dir():
-        FREECAD_BIN_PATH = default_path
-        print(f"INFO: Using default FreeCAD path: {FREECAD_BIN_PATH}")
+        FREECAD_ROOT_PATH = default_path
+        print(f"INFO: Using default FreeCAD path: {FREECAD_ROOT_PATH}")
 
-if FREECAD_BIN_PATH and FREECAD_BIN_PATH.is_dir():
-    if str(FREECAD_BIN_PATH) not in sys.path:
-        sys.path.append(str(FREECAD_BIN_PATH))
+if FREECAD_ROOT_PATH and FREECAD_ROOT_PATH.is_dir():
+    bin_path = FREECAD_ROOT_PATH / "bin"
+    lib_path = FREECAD_ROOT_PATH / "lib"
+    mod_path = FREECAD_ROOT_PATH / "Mod"
+    paths_to_add = [str(p) for p in [bin_path, lib_path, mod_path] if p.is_dir()]
+
+    if not paths_to_add:
+        print(f"ERROR: Could not find 'bin' or 'lib' directories in {FREECAD_ROOT_PATH}")
+        sys.exit(1)
+
+    for path in paths_to_add:
+        if path not in sys.path:
+            sys.path.append(path)
 else:
     # Use a simple print for this critical error, as the logger is not yet configured.
-    print("ERROR: Could not find the FreeCAD 'bin' directory.")
+    print("ERROR: Could not find the FreeCAD installation directory.")
     print("Please do one of the following:")
-    print(
-        "1. Set the 'FREECAD_PATH' environment variable to point to the 'bin' directory of your FreeCAD installation."
-    )
-    print(r"   Example: set FREECAD_PATH=C:\Program Files\FreeCAD 0.21\bin")
+    print("1. Set the 'FREECAD_PATH' environment variable to point to the root directory of your FreeCAD installation.")
+    print(r"   Example: set FREECAD_PATH=C:\Program Files\FreeCAD 0.21")
     print("2. Modify the 'default_path' variable in this script to the correct location.")
     sys.exit(1)
 
@@ -40,10 +49,11 @@ try:
     import FreeCAD
     import Import
     import MeshPart
-    import Part
 except ImportError:
     print("ERROR: Could not import the FreeCAD modules.")
-    print(f"Please verify that the path '{FREECAD_BIN_PATH}' is correct and contains the necessary FreeCAD libraries.")
+    print(
+        f"Please verify that the path '{FREECAD_ROOT_PATH}' is correct and contains the necessary FreeCAD libraries in its 'bin' and 'lib' subdirectories."
+    )
     sys.exit(1)
 
 # --- Conversion Function ---
@@ -90,8 +100,8 @@ def convert_step_to_stl(input_filepath: str):
     finally:
         # 5. Clean up by closing the document to free up memory
         if doc:
+            logging.info(f"Closing document: {doc.Name}")
             FreeCAD.closeDocument(doc.Name)
-            logging.info(f"Closed document: {doc.Name}")
 
 
 # --- Main Execution ---
