@@ -61,7 +61,14 @@ except ImportError:
 # --- Conversion Function ---
 
 
-def convert_step_to_stl(input_filepath: str, scale_x: float, scale_y: float, scale_z: float):
+def convert_step_to_stl(
+    input_filepath: str,
+    scale_x: float,
+    scale_y: float,
+    scale_z: float,
+    linear_deflection: float,
+    angular_deflection: float,
+):
     """
     Converts a single STEP file to STL with specific mesh settings.
     """
@@ -92,7 +99,10 @@ def convert_step_to_stl(input_filepath: str, scale_x: float, scale_y: float, sca
         # 4. Create the Mesh (Tessellation)
         logging.info("Performing meshing...")
         mesh_object = MeshPart.meshFromShape(
-            Shape=shape, LinearDeflection=2, AngularDeflection=0.0872665, Relative=True
+            Shape=shape,
+            LinearDeflection=linear_deflection,
+            AngularDeflection=angular_deflection,
+            Relative=True,
         )
 
         # 5. Export to STL
@@ -137,6 +147,19 @@ def main():
     parser.add_argument(
         "--mm_to_m", action="store_true", help="Apply a uniform scaling factor of 0.001 to convert from mm to m."
     )
+    # Mesh settings
+    parser.add_argument(
+        "--linear_deflection",
+        type=float,
+        default=2.0,
+        help="Linear deflection for meshing. Default is 2.0.",
+    )
+    parser.add_argument(
+        "--angular_deflection",
+        type=float,
+        default=0.0872665,
+        help="Angular deflection for meshing in radians. Default is 0.0872665 (5 degrees).",
+    )
     args = parser.parse_args()
 
     # Determine scaling factors
@@ -173,7 +196,14 @@ def main():
 
         # Check if it is a STEP file
         if filepath.lower().endswith((".stp", ".step")):
-            convert_step_to_stl(filepath, scale_x, scale_y, scale_z)
+            convert_step_to_stl(
+                filepath,
+                scale_x,
+                scale_y,
+                scale_z,
+                args.linear_deflection,
+                args.angular_deflection,
+            )
             success_count += 1
         else:
             logging.warning(f"File is not a .stp or .step file, skipping: {filepath}")
