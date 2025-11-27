@@ -1,4 +1,5 @@
 import argparse
+import glob
 import logging
 import os
 import sys
@@ -93,9 +94,9 @@ def convert_step_to_stl(input_filepath: str):
 
         logging.info(f"File successfully converted: {output_filepath}")
 
-    except Exception as e:
+    except Exception:
         # Use logging.exception to include traceback information in the log
-        logging.exception(f"Could not convert file {input_filepath}: {e!s}")
+        logging.exception(f"Could not convert file {input_filepath}")
 
     finally:
         # 5. Clean up by closing the document to free up memory
@@ -120,14 +121,22 @@ def main():
         "input_files",
         metavar="FILE",
         nargs="+",
-        help="One or more paths to the STEP files to be converted.",
+        help="One or more paths or glob patterns to the STEP files to be converted.",
     )
     args = parser.parse_args()
 
-    # Loop over all provided files
-    logging.info(f"Number of files to convert: {len(args.input_files)}")
+    # Expand glob patterns
+    all_files = []
+    for pattern in args.input_files:
+        expanded_files = glob.glob(pattern, recursive=True)
+        if not expanded_files:
+            logging.warning(f"No files matched the pattern: {pattern}")
+        all_files.extend(expanded_files)
+
+    # Loop over all found files
+    logging.info(f"Number of files to convert: {len(all_files)}")
     success_count = 0
-    for filepath in args.input_files:
+    for filepath in all_files:
         if not os.path.exists(filepath):
             logging.warning(f"File not found, skipping: {filepath}")
             continue
@@ -139,7 +148,7 @@ def main():
         else:
             logging.warning(f"File is not a .stp or .step file, skipping: {filepath}")
 
-    logging.info(f"Done. {success_count} out of {len(args.input_files)} files processed.")
+    logging.info(f"Done. {success_count} out of {len(all_files)} files processed.")
 
 
 if __name__ == "__main__":
