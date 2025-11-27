@@ -75,7 +75,7 @@ def convert_step_to_stl(input_filepath: str):
 
         # Check if any object was imported
         if not doc.Objects:
-            raise RuntimeError("STEP file could not be imported or is empty.")
+            raise RuntimeError("STEP file could not be imported or is empty.")  # noqa: TRY003, TRY301
 
         # 2. Get the shape from the first imported object.
         # This assumes the STEP file contains at least one object.
